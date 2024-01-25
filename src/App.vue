@@ -3,9 +3,12 @@
 
   <div class="container">
     <Balance :total="total" />
-    <IncomeExpenses />
-    <TransactionList :transactions="transactions" />
-    <AddTransaction />
+    <IncomeExpenses :income="+income" :expenses="+expenses" />
+    <TransactionList
+      :transactions="transactions"
+      @transactionDeleted="handleDeleteTransaction"
+    />
+    <AddTransaction @transactionSubmitted="handleTransactionSubmitted" />
   </div>
 </template>
 
@@ -16,24 +19,74 @@ import IncomeExpenses from "./components/IncomeExpenses.vue";
 import TransactionList from "./components/TransactionList.vue";
 import AddTransaction from "./components/AddTransaction.vue";
 
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { useToast } from "vue-toastification";
 
-const transactions = ref([
-  {
-    id: 1,
-    text: "Flower",
-    amount: -19.99,
-  },
-  {
-    id: 2,
-    text: "Salary",
-    amount: 299.97,
-  },
-]);
+const toast = useToast();
 
+const transactions = ref([]);
+
+onMounted(() => {
+  const savedTransactions = JSON.parse(localStorage.getItem("transactions"));
+
+  if (savedTransactions) {
+    transactions.value = savedTransactions;
+  }
+});
+
+//Get total
 const total = computed(() => {
   return transactions.value.reduce((acc, transaction) => {
     return acc + transaction.amount;
   }, 0);
 });
+
+//Get income
+const income = computed(() => {
+  return transactions.value
+    .filter((transaction) => transaction.amount > 0)
+    .reduce((acc, transaction) => {
+      return acc + transaction.amount;
+    }, 0)
+    .toFixed(2);
+});
+
+//Get expenses
+const expenses = computed(() => {
+  return transactions.value
+    .filter((transaction) => transaction.amount < 0)
+    .reduce((acc, transaction) => {
+      return acc + transaction.amount;
+    }, 0)
+    .toFixed(2);
+});
+
+//Add transaction
+const handleTransactionSubmitted = (transactionData) => {
+  transactions.value.push({ id: generateUniqueId(), ...transactionData });
+
+  saveTransactionsToLocalStorage();
+
+  toast.success("New transaction added");
+};
+
+//Delete transaction
+const handleDeleteTransaction = (id) => {
+  transactions.value = transactions.value.filter(
+    (transaction) => transaction.id !== id
+  );
+
+  saveTransactionsToLocalStorage();
+
+  toast.success("Transaction deleted");
+};
+
+//save to local storage
+const saveTransactionsToLocalStorage = () => {
+  localStorage.setItem("transactions", JSON.stringify(transactions.value));
+};
+// Generate unique id
+const generateUniqueId = () => {
+  return Math.floor(Math.random() * 100000);
+};
 </script>
